@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tamper-Detection Device Simulator</title>
+<style>
+:root{--bg:#0b1020;--panel:#121a2e;--line:#22304f;--text:#e6ecff;--muted:#8a97b8;--ok:#22c55e;--warn:#f59e0b;--bad:#ef4444;--accent:#38bdf8}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px;padding-top:calc(16px + env(safe-area-inset-top,0px));padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+h1{font-size:20px;margin:0 0 4px}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 10px}
+.sub{color:var(--muted);font-size:13px}
+.grid{display:grid;gap:16px;grid-template-columns:1fr;max-width:1240px;margin:auto}
+@media(min-width:960px){.grid{grid-template-columns:1.15fr 1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+.flex{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.between{justify-content:space-between}
+.badge{padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600;background:#1c2540;color:var(--muted);white-space:nowrap}
+.badge.ok{background:#0f3d24;color:#86efac}.badge.bad{background:#4a1515;color:#fca5a5}.badge.warn{background:#4a3210;color:#fcd34d}
+.btn{background:var(--accent);color:#04111f;border:0;border-radius:10px;padding:9px 14px;font-weight:700;cursor:pointer;font:inherit;font-size:13px}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+.stage{position:relative;height:250px;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,#16203a,#0b1020 70%);border-radius:12px;overflow:hidden}
+.device{position:relative;width:250px;height:150px;background:linear-gradient(160deg,#1f2530,#0b0e14 70%);border-radius:12px;border:1px solid #2b3446;box-shadow:0 14px 34px #000c,inset 0 1px 0 #ffffff12,inset 0 -2px 6px #0008,0 0 22px #38bdf829;transition:opacity .4s,filter .4s}
+.device::after{content:"";position:absolute;inset:-4px;border-radius:15px;border:1px solid #38bdf84d;pointer-events:none}
+.device.off{filter:brightness(.35)}
+.device.vib{animation:vib .12s linear infinite}
+@keyframes vib{0%{transform:translate(0,0)}25%{transform:translate(1px,-1px)}50%{transform:translate(-1px,0)}75%{transform:translate(0,1px)}100%{transform:translate(0,0)}}
+.lid{position:absolute;left:6px;right:6px;top:6px;height:54px;border-radius:9px;background:linear-gradient(170deg,#2a3142,#141924);border:1px solid #3a4560;box-shadow:inset 0 1px 0 #ffffff1a,0 3px 8px #0009;transform-origin:left center;transition:transform .8s cubic-bezier(.3,.7,.3,1);z-index:2}
+.lid::before{content:"";position:absolute;left:12px;right:12px;top:50%;height:1px;background:repeating-linear-gradient(90deg,#ffffff1f 0 6px,transparent 6px 10px)}
+.lidlabel{position:absolute;left:0;right:0;top:12px;text-align:center;font-size:10px;font-weight:700;letter-spacing:.18em;color:#c9d3ea;text-shadow:0 0 6px #38bdf866}
+.lidlabel small{display:block;font-size:7px;font-weight:400;letter-spacing:.12em;color:#7d8aa8;margin-top:2px}
+.device.open .lid{transform:translateY(-22px) rotate(-14deg)}
+.board{position:absolute;left:14px;right:14px;top:70px;height:62px;border-radius:6px;background:linear-gradient(90deg,#0f5132,#166534);opacity:.25;transition:opacity .6s}
+.device.open .board{opacity:1}
+.reed{position:absolute;right:20px;top:40px;width:8px;height:20px;border-radius:2px;background:#9aa;z-index:3}
+.magnet{position:absolute;right:16px;top:12px;width:16px;height:16px;border-radius:3px;background:#c33;z-index:3;transition:transform .8s}
+.device.open .magnet{transform:translateY(-14px)}
+.screw{position:absolute;width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#d7dbe6,#6b7280);z-index:4;transition:transform .8s,opacity .8s}
+.screw::after{content:"";position:absolute;left:3px;right:3px;top:6px;height:2px;background:#333;transform:rotate(35deg)}
+.screw.pull{transform:translateY(-40px) rotate(260deg);opacity:0}
+.screw.gone{opacity:0}
+.s1{left:10px;top:118px}.s2{right:10px;top:118px}.s3{left:10px;top:4px}.s4{right:10px;top:4px}
+.led{position:absolute;left:50%;top:84px;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:#333;z-index:3}
+.led.green{background:var(--ok);box-shadow:0 0 12px var(--ok)}.led.amber{background:var(--warn);box-shadow:0 0 14px var(--warn)}.led.red{background:var(--bad);box-shadow:0 0 14px var(--bad);animation:blink .5s infinite}
+@keyframes blink{50%{opacity:.2}}
+.buzzer{position:absolute;right:-30px;bottom:6px;font-size:22px;opacity:.3}
+.buzzer.ring{opacity:1;animation:ring .2s infinite}
+@keyframes ring{50%{transform:scale(1.3) rotate(10deg)}}
+.torch{position:absolute;left:8px;top:14px;font-size:34px;transform:translateX(-160px) rotate(10deg);transition:transform .9s ease}
+.torch.on{transform:translateX(0) rotate(10deg)}
+.beam{position:absolute;left:52px;top:28px;width:0;height:0;opacity:0;background:linear-gradient(90deg,#fef08a99,transparent);clip-path:polygon(0 40%,100% 0,100% 100%,0 60%);transition:all .9s}
+.beam.on{opacity:1;width:110px;height:50px}
+.usb{position:absolute;left:-12px;top:62px;width:14px;height:24px;border-radius:3px;background:#888;transition:background .3s}
+.usb.off{background:#333}
+.cable{position:absolute;left:-60px;top:72px;width:52px;height:4px;background:#444;transition:background .3s}
+.cable.off{background:#2a2a2a}
+.meters{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.meter{background:#0e1528;border:1px solid var(--line);border-radius:10px;padding:8px;text-align:center}
+.meter small{display:block;color:var(--muted);font-size:11px}
+.meter b{font-size:18px;font-family:ui-monospace,Menlo,monospace}
+.meter.off b{color:#64748b}
+.bar{height:6px;background:#1c2540;border-radius:4px;overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;width:100%;background:var(--ok);transition:width .6s,background .6s}
+.sensors{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.sensor{border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:6px}
+.sensor small{display:block;color:var(--muted);font-size:11px}
+.sensor.hit{border-color:var(--bad);background:#2a1212}
+.tests{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.test{background:#0e1528;border:1px solid var(--line);border-radius:12px;padding:12px;text-align:left;color:var(--text);cursor:pointer;font:inherit;transition:border-color .2s,transform .1s}
+.test:hover{border-color:var(--accent)}.test:active{transform:scale(.98)}
+.test b{display:block;font-size:14px;margin-bottom:4px}
+.test span{font-size:12px;color:var(--muted);line-height:1.35}
+.test.wide{grid-column:1/-1}
+.toggle{font-size:13px;color:var(--muted)}
+.tabs{display:flex;gap:6px;margin-bottom:10px}
+.tab{flex:1;padding:7px;border-radius:8px;background:#1c2540;border:0;color:var(--muted);font:inherit;font-size:12px;cursor:pointer;position:relative}
+.tab.active{background:var(--accent);color:#04111f;font-weight:700}
+.tab .cnt{position:absolute;top:-5px;right:-4px;background:var(--bad);color:#fff;border-radius:99px;font-size:10px;padding:1px 6px}
+.phone{width:280px;height:500px;margin:auto;background:#000;border:8px solid #1d2233;border-radius:36px;padding:30px 10px 10px;position:relative;overflow:hidden;box-shadow:0 20px 40px #0009}
+.phone .notch{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:90px;height:20px;background:#111;border-radius:12px}
+.screen{height:100%;overflow:auto;padding-top:6px}
+.push{background:#1f2633f2;border-radius:14px;padding:10px 12px;margin-bottom:8px;font-size:12px;animation:slide .35s ease}
+.push.crit{border-left:4px solid var(--bad)}.push.info{border-left:4px solid var(--ok)}
+.push .app{display:flex;justify-content:space-between;color:#9aa4bf;font-size:11px;margin-bottom:3px}
+.push b{font-size:13px;display:block;margin-bottom:2px}
+.tg-head{display:flex;align-items:center;gap:8px;background:#17212b;padding:8px;border-radius:12px;margin-bottom:8px;font-size:13px}
+.tg-av{width:30px;height:30px;border-radius:50%;background:#2aabee;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff}
+.bubble{background:#182533;border-radius:12px 12px 12px 3px;padding:8px 10px;margin-bottom:8px;font-size:12px;white-space:pre-line;animation:slide .35s ease;max-width:95%}
+.bubble.crit{border-left:3px solid var(--bad)}
+.bubble .ticks{text-align:right;color:#7fb8dd;font-size:10px;margin-top:4px}
+@keyframes slide{from{transform:translateY(-10px);opacity:0}to{transform:none;opacity:1}}
+.log{max-height:300px;overflow:auto;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;display:flex;flex-direction:column;gap:6px}
+.log div{border-left:3px solid var(--line);padding:4px 8px;background:#0e1528;border-radius:6px}
+.log .crit{border-color:var(--bad)}.log .warn{border-color:var(--warn)}.log .ok{border-color:var(--ok)}
+.log .t{color:var(--muted)}
+.hint{font-size:12px;color:var(--muted);margin-top:10px;text-align:center}
+.caption{font-size:12px;color:var(--muted);text-align:center;margin-top:8px;min-height:16px}
+</style>
+</head>
+<body>
+<div class="grid">
+
+  <!-- LEFT -->
+  <div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="flex between" style="margin-bottom:10px">
+        <div>
+          <h1>Tamper-Detection Device Simulator</h1>
+          <div class="sub">Raspberry Pi 5 · Zymkey 5 · Reed, Vibration, LDR, Screw and Power sensors</div>
+        </div>
+        <span id="status" class="badge ok">ARMED · SECURE</span>
+      </div>
+
+      <div class="stage" id="stage">
+        <div class="torch" id="torch">🔦</div>
+        <div class="beam" id="beam"></div>
+        <div class="cable" id="cable"></div>
+        <div class="device" id="device">
+          <div class="board"></div>
+          <div class="reed"></div>
+          <div class="magnet" id="magnet"></div>
+          <div class="lid"><div class="lidlabel">SECURE-PI<small>RASPBERRY PI 5 ENCLOSURE</small></div></div>
+          <div class="led green" id="led"></div>
+          <div class="screw s1" id="scr1"></div>
+          <div class="screw s2" id="scr2"></div>
+          <div class="screw s3" id="scr3"></div>
+          <div class="screw s4" id="scr4"></div>
+          <div class="usb" id="usb"></div>
+          <div class="buzzer" id="buzzer">🔔</div>
+        </div>
+      </div>
+      <div class="caption" id="caption">Device idle. All sensors monitoring.</div>
+
+      <div class="meters">
+        <div class="meter" id="mV"><small>Supply voltage</small><b>5.12 V</b><div class="bar"><i id="barV"></i></div></div>
+        <div class="meter" id="mW"><small>Power draw</small><b>2.4 W</b><div class="bar"><i id="barW"></i></div></div>
+        <div class="meter" id="mB"><small>CR2032 backup</small><b>3.0 V</b><div class="bar"><i id="barB"></i></div></div>
+      </div>
+
+      <div class="sensors" id="sensors"></div>
+
+      <div class="flex" style="margin-top:12px;justify-content:space-between">
+        <label class="toggle"><input type="checkbox" id="armed" checked> Armed</label>
+        <label class="toggle"><input type="checkbox" id="sound" checked> Buzzer sound</label>
+        <button class="btn ghost" onclick="restoreAll()">Reset device</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Test cases: click to simulate</h2>
+      <div class="tests" id="tests"></div>
+      <div class="hint">Each test drives the device, sensors, buzzer, event log and both alert channels.</div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div>
+    <div class="card" style="margin-bottom:16px">
+      <h2>User's devices</h2>
+      <div class="tabs">
+        <button class="tab active" id="tabWeb" onclick="showTab('web')">🌐 Web app<span class="cnt" id="cntWeb" style="display:none">0</span></button>
+        <button class="tab" id="tabTg" onclick="showTab('tg')">✈ Telegram<span class="cnt" id="cntTg" style="display:none">0</span></button>
+      </div>
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="screen" id="webScreen"><div id="webList"></div></div>
+        <div class="screen" id="tgScreen" style="display:none">
+          <div class="tg-head"><div class="tg-av">S</div><div><b>SecureBox Bot</b><div style="color:#8a97b8;font-size:11px">bot · online</div></div></div>
+          <div id="tgList"></div>
+        </div>
+      </div>
+      <div class="hint">Every alert is sent to both the web app and Telegram.</div>
+    </div>
+
+    <div class="card">
+      <div class="flex between" style="margin-bottom:10px">
+        <h2 style="margin:0">Device event log</h2>
+        <button class="btn ghost" onclick="clearLog()">Clear</button>
+      </div>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SENSORS = {
+  reed:{name:"Magnetic reed switch",desc:"Enclosure opening"},
+  screw:{name:"Tamper-evident screw",desc:"Screw removal"},
+  vib:{name:"SW-420 vibration",desc:"Shock / movement"},
+  ldr:{name:"LDR light sensor",desc:"Light inside box"},
+  power:{name:"Power supply",desc:"USB-C supply status"},
+  zk:{name:"Zymkey 5 (secure)",desc:"GPIO / I2C probing"}
+};
+
+const TESTS = [
+  {id:"open",title:"1. Open the case",sub:"Lid lifts, magnet leaves reed switch",sensor:"reed",sev:"crit",led:"red",lock:true,
+   cap:"Lid opening: magnet separates from reed switch",
+   msg:"Enclosure opened. Magnetic reed switch lost contact.",
+   actions:["Buzzer + red LED","Device locked","Event logged","Alert sent (web + Telegram)"]},
+  {id:"screw",title:"2. Remove tamper-evident screw",sub:"Screw is pulled out of the enclosure",sensor:"screw",sev:"crit",led:"red",lock:true,
+   cap:"Screw pulled out and removed from the enclosure",
+   msg:"Tamper-evident screw removed from enclosure.",
+   actions:["Buzzer + red LED","Device locked","Event logged","Alert sent (web + Telegram)"]},
+  {id:"vib",title:"3. Vibration / movement",sub:"Box shifts slightly, SW-420 reads motion",sensor:"vib",sev:"warn",led:"amber",
+   cap:"Slight movement detected by SW-420 sensor",
+   msg:"Movement detected by SW-420 vibration sensor.",
+   actions:["Buzzer warning tone","Amber LED","Event logged","Alert sent (web + Telegram)"]},
+  {id:"ldr",title:"4. Light exposure",sub:"Torch shines into the sealed box",sensor:"ldr",sev:"warn",led:"amber",
+   cap:"Torch light reaching the LDR inside the box",
+   msg:"Light detected inside sealed enclosure (LDR + MCP3008).",
+   actions:["Privacy mode on","Amber LED","Event logged","Alert sent (web + Telegram)"]},
+  {id:"power",title:"5. Power off",sub:"USB-C supply cut, power meter drops to 0 V",sensor:"power",sev:"crit",led:"amber",powerOff:true,
+   cap:"Main power cut, running on CR2032 backup",
+   msg:"Main power lost. Running on Zymkey CR2032 backup.",
+   actions:["Switched to CR2032 backup","Logging continues","Event logged","Alert sent (web + Telegram)"]},
+  {id:"probe",title:"6. Reverse engineering (GPIO / I2C)",sub:"Repeated probing of GPIO and I2C lines",sensor:"zk",sev:"crit",led:"red",lock:true,zeroize:true,wide:true,
+   cap:"Probe detected on GPIO/I2C lines",
+   msg:"Anomalous GPIO/I2C access. Secure keys zeroized.",
+   actions:["Zeroize keys in Zymkey 5","Device locked","Buzzer + red LED","Alert sent (web + Telegram)"]}
+];
+
+let st, screws, armed = true, locked = false, zeroized = false, powerOn = true, busy = false;
+function resetState(){
+  st = {reed:false,screw:false,vib:false,ldr:false,power:false,zk:false};
+  screws = 4; locked = false; zeroized = false; powerOn = true;
+}
+resetState();
+
+// ---------- rendering ----------
+function renderTests(){
+  document.getElementById("tests").innerHTML = TESTS.map(t =>
+    `<button class="test ${t.wide?'wide':''}" onclick="runTest('${t.id}')"><b>${t.title}</b><span>${t.sub}</span></button>`
+  ).join("") +
+  `<button class="test" onclick="powerOnTest()"><b>⚡ Restore power</b><span>Reconnect USB-C supply</span></button>` +
+  `<button class="test" onclick="runTest('normal')"><b>✔ Normal check</b><span>All sensors healthy, no alert</span></button>`;
+}
+
+function renderSensors(){
+  document.getElementById("sensors").innerHTML = Object.keys(SENSORS).map(k=>{
+    const s=SENSORS[k], hit=st[k];
+    return `<div class="sensor ${hit?'hit':''}"><div>${s.name}<small>${s.desc}</small></div><span class="badge ${hit?'bad':'ok'}">${hit?'TRIGGERED':'OK'}</span></div>`;
+  }).join("");
+}
+
+function renderDevice(){
+  const d = document.getElementById("device");
+  d.classList.toggle("off", !powerOn);
+  d.classList.toggle("open", st.reed);
+  ["scr1","scr2","scr3","scr4"].forEach((id,i)=>{
+    document.getElementById(id).classList.toggle("gone", i>=screws);
+  });
+  document.getElementById("usb").classList.toggle("off", !powerOn);
+  document.getElementById("cable").classList.toggle("off", !powerOn);
+  renderMeters();
+  renderSensors();
+}
+
+function renderMeters(){
+  const v = document.querySelector("#mV b"), w = document.querySelector("#mW b"), b = document.querySelector("#mB b");
+  const mV=document.getElementById("mV"), mW=document.getElementById("mW");
+  if(powerOn){
+    v.textContent="5.12 V"; w.textContent="2.4 W";
+    mV.classList.remove("off"); mW.classList.remove("off");
+    document.getElementById("barV").style.width="100%";
+    document.getElementById("barW").style.width="40%";
+  } else {
+    v.textContent="0.00 V"; w.textContent="0.0 W";
+    mV.classList.add("off"); mW.classList.add("off");
+    document.getElementById("barV").style.width="0%";
+    document.getElementById("barW").style.width="0%";
+  }
+  b.textContent="3.0 V";
+  document.getElementById("barB").style.width="90%";
+  document.getElementById("barB").style.background = powerOn ? "var(--ok)" : "var(--warn)";
+}
+
+function setLed(c){ document.getElementById("led").className="led "+c; }
+
+function setStatus(){
+  const s=document.getElementById("status");
+  if(zeroized){s.className="badge bad";s.textContent="KEYS ZEROIZED · LOCKED";}
+  else if(locked){s.className="badge bad";s.textContent="LOCKED · TAMPER";}
+  else if(!powerOn){s.className="badge warn";s.textContent="POWER OFF · BACKUP";}
+  else if(Object.values(st).some(Boolean)){s.className="badge warn";s.textContent="WARNING";}
+  else if(!armed){s.className="badge warn";s.textContent="DISARMED";}
+  else {s.className="badge ok";s.textContent="ARMED · SECURE";}
+}
+
+function caption(t){ document.getElementById("caption").textContent = t; }
+
+// ---------- sound ----------
+let ac;
+function beep(freq, dur, when=0){
+  if(!document.getElementById("sound").checked) return;
+  try{
+    ac = ac || new (window.AudioContext||window.webkitAudioContext)();
+    const o=ac.createOscillator(), g=ac.createGain();
+    o.type="square"; o.frequency.value=freq;
+    o.connect(g); g.connect(ac.destination);
+    const t=ac.currentTime+when;
+    g.gain.setValueAtTime(0.08,t); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.start(t); o.stop(t+dur);
+  }catch(e){}
+}
+function buzzSound(sev){
+  if(sev==="crit"){ [0,.3,.6].forEach(w=>beep(1000,.22,w)); }
+  else { beep(620,.35); }
+}
+
+// ---------- logging, alerts ----------
+function ts(){ return new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+function log(msg,cls=""){
+  const d=document.createElement("div"); d.className=cls;
+  d.innerHTML=`<span class="t">[${ts()}]</span> ${msg}`;
+  document.getElementById("log").prepend(d);
+}
+function clearLog(){ document.getElementById("log").innerHTML=""; }
+
+let unread={web:0,tg:0}, currentTab="web";
+function showTab(t){
+  currentTab=t;
+  document.getElementById("tabWeb").classList.toggle("active",t==="web");
+  document.getElementById("tabTg").classList.toggle("active",t==="tg");
+  document.getElementById("webScreen").style.display = t==="web"?"block":"none";
+  document.getElementById("tgScreen").style.display = t==="tg"?"block":"none";
+  unread[t]=0; updateCounts();
+}
+function updateCounts(){
+  ["web","tg"].forEach(k=>{
+    const c=document.getElementById("cnt"+(k==="web"?"Web":"Tg"));
+    c.style.display = unread[k]?"block":"none"; c.textContent=unread[k];
+  });
+}
+
+function sendWeb(title, body, crit){
+  const d=document.createElement("div");
+  d.className="push "+(crit?"crit":"info");
+  d.innerHTML=`<div class="app"><span>🔐 SecureBox Web</span><span>now</span></div><b>${title}</b>${body}`;
+  const list=document.getElementById("webList");
+  list.prepend(d);
+  if(currentTab!=="web"){unread.web++;updateCounts();}
+}
+function sendTelegram(text, crit){
+  const d=document.createElement("div");
+  d.className="bubble "+(crit?"crit":"");
+  d.innerHTML=`${text}<div class="ticks">${ts()} ✓✓</div>`;
+  const list=document.getElementById("tgList");
+  list.appendChild(d);
+  list.parentElement.scrollTop=list.parentElement.scrollHeight;
+  if(currentTab!=="tg"){unread.tg++;updateCounts();}
+}
+
+function sendAlert(title, msg, sev, crit){
+  const crit2 = sev==="crit";
+  sendWeb(title, msg, crit2);
+  sendTelegram(`🚨 <b>${title}</b>\nDevice: SecureBox-01\nEvent: ${msg}\nTime: ${new Date().toLocaleTimeString()}`.replace(/<\/?b>/g,"").replace("🚨 ","🚨 "), crit2);
+  log(`Alert delivered to web app and Telegram (${title})`, crit2?"crit":"warn");
+}
+
+// ---------- test logic ----------
+function runTest(id){
+  if(id==="normal"){
+    log("Health check: all sensors OK, Zymkey responding","ok");
+    sendWeb("Status OK","All sensors healthy. No tampering.",false);
+    sendTelegram("✅ Status OK\nDevice: SecureBox-01\nAll sensors healthy.",false);
+    caption("Normal operation. No alert sent.");
+    return;
+  }
+  const t=TESTS.find(x=>x.id===id); if(!t) return;
+  if(!powerOn && id!=="power"){ log("Device is on backup power; sensor event still logged","warn"); }
+
+  st[t.sensor]=true;
+  caption(t.cap);
+
+  if(t.id==="open"){ /* lid + magnet animate via .open class */ }
+  if(t.id==="screw" && screws>0){
+    const el=document.getElementById("scr"+screws); // remove the last fitted screw
+    screws--;
+    el.classList.add("pull");
+    setTimeout(()=>{ el.classList.remove("pull"); el.classList.add("gone"); },800);
+  }
+  if(t.id==="vib"){
+    const d=document.getElementById("device");
+    d.classList.add("vib"); setTimeout(()=>d.classList.remove("vib"),1600);
+  }
+  if(t.id==="ldr"){
+    document.getElementById("torch").classList.add("on");
+    document.getElementById("beam").classList.add("on");
+    setTimeout(()=>{
+      document.getElementById("torch").classList.remove("on");
+      document.getElementById("beam").classList.remove("on");
+    },3000);
+  }
+  if(t.powerOff){ powerOn=false; }
+  if(t.lock) locked=true;
+  if(t.zeroize) zeroized=true;
+  setLed(t.led);
+
+  if(armed){
+    buzzSound(t.sev);
+    const b=document.getElementById("buzzer");
+    b.classList.add("ring"); setTimeout(()=>b.classList.remove("ring"),1500);
+  } else {
+    log("Alarm muted: device DISARMED (maintenance mode)","warn");
+  }
+
+  renderDevice(); setStatus();
+
+  const cls=t.sev==="crit"?"crit":"warn";
+  log(`<b>${t.title.replace(/^\d\.\s*/,"")}</b>: ${t.msg}`,cls);
+  t.actions.forEach(a=>log("→ "+a,""));
+
+  if(armed){
+    sendAlert(t.sev==="crit"?"⚠ TAMPER ALERT":"Warning: device disturbed", t.msg, t.sev, true);
+  }
+}
+
+function powerOnTest(){
+  if(powerOn){ caption("Power is already on."); return; }
+  powerOn=true;
+  setLed("green");
+  renderDevice(); setStatus();
+  caption("Power restored from USB-C supply.");
+  log("Power restored: USB-C supply connected, backup released","ok");
+  if(armed){ sendAlert("Power restored","Main power is back on. Device still locked for review.","info",false); }
+}
+
+function restoreAll(){
+  resetState();
+  setLed("green");
+  document.getElementById("torch").classList.remove("on");
+  document.getElementById("beam").classList.remove("on");
+  renderDevice(); setStatus();
+  caption("Device reset: lid closed, screws fitted, keys restored.");
+  log("Device reset: enclosure closed, screws fitted, keys restored","ok");
+  if(armed) sendAlert("Device restored","Tamper state cleared. Device is ARMED.","info",false);
+}
+
+document.getElementById("armed").addEventListener("change",e=>{
+  armed=e.target.checked;
+  log(armed?"Device ARMED: alerts enabled":"Device DISARMED: alerts muted", armed?"ok":"warn");
+  setStatus();
+});
+
+renderTests(); renderDevice(); setStatus(); setLed("green");
+log("Device booted. Raspberry Pi 5 + Zymkey 5 online. Sensors monitoring.","ok");
+sendWeb("Device online","SecureBox is armed and monitoring.",false);
+sendTelegram("✅ SecureBox-01 is online and armed.",false);
+</script>
+</body>
+</html>
